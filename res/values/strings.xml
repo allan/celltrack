@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, CellTrack!</string>
+    <string name="app_name">celltrack</string>
+    <string name="widgetMR">7px</string>
+</resources>
