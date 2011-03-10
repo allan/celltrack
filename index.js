@@ -55,7 +55,7 @@ var server = http.createServer(function(request, response) {
       response.writeHead(202);
       sha1 = crypto.createHash('sha1')
       sha1.update(data);
-      key = sha1.digest('base64')
+      key = 'cell:'+sha1.digest('base64')
 
       client.lpush(day, JSON.stringify(
         { humantime: (new Date).toLocaleString(),
@@ -151,7 +151,7 @@ var server = http.createServer(function(request, response) {
               var i = 0
               reply.forEach(function(point) {
                 var p = JSON.parse(point)
-                client.hgetall(p.cell, function(err, cell) {
+                client.hgetall('cell:'+p.cell, function(err, cell) {
                   //cell = JSON.parse(cell.toString())
                   //console.log(cell)
                   try {
