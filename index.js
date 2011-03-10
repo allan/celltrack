@@ -35,8 +35,10 @@ var server = http.createServer(function(request, response) {
 
   // POST
   if (request.method === 'POST') {
-    var cell, coordinates, key, sha1, data = ""
-      , day = DateString(new Date)
+    var cell, cellDigest, coordinates, key, sha1, data = ""
+      , path = url.parse(request.url).pathname.split('/')
+      , id = path[3]
+      , dayId = DateString(new Date) + ':' + id
 
     request
     .on('data', function(data) {
@@ -55,12 +57,14 @@ var server = http.createServer(function(request, response) {
       response.writeHead(202);
       sha1 = crypto.createHash('sha1')
       sha1.update(data);
-      key = 'cell:'+sha1.digest('base64')
+      cellDigest = sha1.digest('base64')
+      key = 'cell:'+cellDigest
 
-      client.lpush(day, JSON.stringify(
+      client.sadd('user:'+id+':days', dayId);
+      client.lpush(dayId, JSON.stringify(
         { humantime: (new Date).toLocaleString(),
           time: +new Date,
-          cell: key }))
+          cell: cellDigest }))
       client.exists(key, function(err, exists) {
         if (exists) {
           console.log("found key "+key);
@@ -118,12 +122,29 @@ var server = http.createServer(function(request, response) {
   } else if (request.method === 'GET') {
     var body = "" , day, tripcoords = []
       , path = url.parse(request.url).pathname.split('/')
-
+      , id = path[3]
     console.log(request.headers['x-real-ip']+" requested "+path)
 
-    day = path.length <= 3
-    ? DateString(new Date)
-    : 'day:'+path.slice(2, 5).join('-')
+    if (path[4] == 'list') {
+      client.smembers('user:'+id+':days', function(err, reply) {
+        if (err) throw err;
+        body += "<html><body><ul>"
+        reply.forEach(function(key) {
+          day = key.split(':')[1]
+          body += "<li>"+day+' <a href="http://maps.google.com/maps?f=q&geocode=&q=http:%2F%2Fallan.de%2Floc%2Fid%2F'
+            +id+'%2F'+day.replace(/-/g, '%2F')+'">map</li>'
+        })
+        body += "</ul></body></html>"
+        response.writeHead(200, {
+          'Content-Length': body.length,
+          'Content-Type': 'text/html' });
+        response.end(body)
+      })
+    }
+
+    day = path.length <= 4
+    ? DateString(new Date) + ':' + id
+    : 'day:'+path.slice(4, 7).join('-')+':'+id
 
     client.exists(day, function(err, exists) {
       if (exists) {

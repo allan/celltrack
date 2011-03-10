@@ -8,6 +8,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.provider.Settings.Secure;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -57,6 +59,7 @@ public class CellTrackService extends Service {
 	
 	public static void postJSON(String URI, final JSONObject json) {
 		//Message msg = CellTrack.pbHandler.obtainMessage(1);
+
 		CellTrack.uiHandler.sendEmptyMessage(1);
 		lastUpdate = new Date();
 		updateInProgress = true;
@@ -164,7 +167,7 @@ public class CellTrackService extends Service {
 						oldjson[1] = oldjson[0];
 						oldjson[0] = json;
 
-						postJSON("http://allan.de/loc", json);
+						postJSON("http://allan.de/loc/id/"+CellTrack.myId, json);
 					} else
 						CellTrack.log("flapping cells");
 				} else Log.v("celltrack", "null values occured, wow");

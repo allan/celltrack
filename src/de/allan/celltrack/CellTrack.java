@@ -11,7 +11,9 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.provider.Settings.Secure;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -43,17 +45,8 @@ public class CellTrack extends Activity {
 	private boolean mIsBound;
 	static SimpleDateFormat formatter = new SimpleDateFormat ("HH:mm:ss");
 	@SuppressWarnings("unused")	private CellTrackService mBoundService = null;
+	static String myId;
 	
-//	conn =
-//		> (HttpURLConnection)url.openConnection();
-//		>                                 
-//		>                 conn.setRequestMethod("POST");
-//		>                 conn.setRequestProperty("Authorization",
-//		>                                         "Basic "
-//		>                                         + Base64.encodeBytes(((StaticConfigLoader.getMAC()).toUpperCase()
-//		> + ":"
-//		>                                                               + StaticConfigLoader.getSerialNumber()).getBytes()));
-
 	static Handler logHandler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
@@ -137,6 +130,8 @@ public class CellTrack extends Activity {
         smallbar = (ProgressBar) findViewById(R.id.progress_small);
         smallbar.setProgressDrawable(shape_red);
         smallbar.setVisibility(ProgressBar.INVISIBLE);
+        ContentResolver cr=getContentResolver();
+        myId = Secure.getString(cr, Secure.ANDROID_ID);
 
         tv.setOnClickListener(new OnClickListener() {
         	public void onClick(View arg0) {
@@ -158,7 +153,7 @@ public class CellTrack extends Activity {
         btnStats.setOnClickListener(new OnClickListener() {   	
 			public void onClick(View v) {
 				try {
-					CellTrackService.postJSON("http://allan.de/loc", new JSONObject());
+					CellTrackService.postJSON("http://allan.de/loc/id/"+myId, new JSONObject());
 				} catch (Exception e) {
 					goBlooey(e);
 					e.printStackTrace();
@@ -170,7 +165,7 @@ public class CellTrack extends Activity {
         btnName.setOnClickListener(new OnClickListener() {
         	public void onClick(View v) {
         		try {
-        			String uri = "geo:0,0?q=http:%2F%2Fallan.de%2Floc";  
+        			String uri = "geo:0,0?q=http:%2F%2Fallan.de%2Floc%2Fid%2F"+myId;  
         	        startActivity(new Intent(android.content.Intent.ACTION_VIEW, Uri.parse(uri)));			
         		} catch(Exception e) {
         			log(e.toString());
@@ -190,6 +185,7 @@ public class CellTrack extends Activity {
 		else {
 			tv.setBackgroundDrawable(shape_red);
 			log("CellTrack started");
+			CellTrack.log("my CellTrack ID: "+myId);
 		}
 	}
 	
