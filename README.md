@@ -22,7 +22,8 @@ and saves it together with your updates.
 
 ### Tryout
 
-If you don't want to compile that crap yourself, you can open http://allan.de/CellTrack.apk 
+If you don't want to compile that crap yourself, you can open
+[http://allan.de/CellTrack.apk](http://allan.de/CellTrack.apk)
 in your Android browser and install the app from there.
 
 Once your device has send some updates, you can click the logo inside
@@ -34,7 +35,4 @@ log when you start the application.
 
 ### Screenshot of a busride through Ulm and the app itself:
 
-<div style="float:left;margin:0 20px 10px 20px" markdown="1">
-   <img src="http://allan.de/celltrack.jpg">
-</div>
-![screenshot](http://allan.de/celltrackmaps.jpg) 
+![screenshot](http://allan.de/celltrack.png) 
