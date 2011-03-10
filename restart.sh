@@ -26,14 +26,16 @@ cd /home/allan/dev/celltrack
 msg "pull from master repo"
 git pull /home/git/celltrack master
 
-msg "killing node instance"
 ps aux |
   grep -q [n]ode &&
+  msg "killing node instance" &&
   killall node
 sleep 0.2
+
 ps aux |
   grep -q [n]ode &&
-  { fatal "node still running.  killing -9"; killall -9 node; }
+  { fatal "node still running.  killing -9"
+    killall -9 node; }
 sleep 0.1
 
 msg "restarting node instance"
