@@ -3,6 +3,7 @@ var http = require('http')
   , util = require('util')
   , fs = require('fs')
   , url = require('url')
+  , util = require('util')
   , redis = require('redis')
   , httprequest = require('request')
 
@@ -32,6 +33,8 @@ client.on("error", function (err) {
 
 var server = http.createServer(function(request, response) {
   request.connection.setTimeout(30000)
+  util.puts(new Date() + "[0;35m "+request.headers['x-real-ip']
+              +"[0m  "+request.url)
 
   // POST
   if (request.method === 'POST') {
@@ -42,16 +45,14 @@ var server = http.createServer(function(request, response) {
 
     request
     .on('data', function(data) {
-      //console.log("postdata: "+ data.toString())
       try {
         cell = JSON.parse(data.toString())
-        console.log("cell: ", cell)
         if (!(cell.cid && cell.lac && cell.mcc && cell.mnc))
           throw new Error('Invalid input')
       } catch (e) {
-        console.log(e, e.stack)
-        response.writeHead(400);
-        response.end();
+        console.log( e.message+", error parsing json post data:", data.toString())
+        response.writeHead(400)
+        response.end()
         return
       }
       response.writeHead(202);
@@ -69,8 +70,6 @@ var server = http.createServer(function(request, response) {
         if (exists) {
           console.log("found key "+key);
           client.hget(key, 'coordinates', function(err, reply) {
-            console.log(new Date, "redis reply: "+reply)
-            //coordinates = JSON.parse(reply)
             response.end(reply);
           })
         } else {
@@ -123,7 +122,6 @@ var server = http.createServer(function(request, response) {
     var body = "" , day, tripcoords = []
       , path = url.parse(request.url).pathname.split('/')
       , id = path[3]
-    console.log(request.headers['x-real-ip']+" requested "+path)
 
     if (path[4] == 'list') {
       client.smembers('user:'+id+':days', function(err, reply) {
@@ -173,11 +171,8 @@ var server = http.createServer(function(request, response) {
               reply.forEach(function(point) {
                 var p = JSON.parse(point)
                 client.hgetall('cell:'+p.cell, function(err, cell) {
-                  //cell = JSON.parse(cell.toString())
-                  //console.log(cell)
                   try {
                     var coordinates = JSON.parse(cell.coordinates.toString())
-                    //console.log(coordinates)
                     if (coordinates.location
                         && coordinates.location.latitude
                         && coordinates.location.longitude)
