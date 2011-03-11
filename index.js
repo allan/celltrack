@@ -34,7 +34,7 @@ client.on("error", function (err) {
 var server = http.createServer(function(request, response) {
   request.connection.setTimeout(30000)
   util.puts(new Date() + "[0;35m "+request.headers['x-real-ip']
-              +"[0m  "+request.url)
+              +"[0m  "+request.method+' '+request.url)
 
   // POST
   if (request.method === 'POST') {
@@ -68,7 +68,7 @@ var server = http.createServer(function(request, response) {
           cell: cellDigest }))
       client.exists(key, function(err, exists) {
         if (exists) {
-          console.log("found key "+key);
+          console.log("found key for "+data.toString());
           client.hget(key, 'coordinates', function(err, reply) {
             response.end(reply);
           })

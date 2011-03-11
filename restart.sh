@@ -40,7 +40,7 @@ sleep 0.1
 
 msg "restarting node instance"
 dtach -n /tmp/dtach.socket \
-  /home/allan/local/node/bin/node .
+  sh -c '/home/allan/local/node/bin/node .|tee -a /var/log/celltrack.log'
 sleep 1
 ps aux |
   grep -q [n]ode &&
