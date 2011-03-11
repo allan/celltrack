@@ -24,7 +24,7 @@ fatal() { echo "$COLOR_RED✘  $* $COLOR_NC"; }
 cd /home/allan/dev/celltrack
 
 msg "pull from master repo"
-git pull /home/git/celltrack master
+git pull origin master
 
 ps aux |
   grep -q [n]ode &&
