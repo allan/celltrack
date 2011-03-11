@@ -43,12 +43,13 @@ public class CellTrackService extends Service {
 	JSONObject []         oldjson = new JSONObject[2];
 	private final IBinder mBinder = new LocalBinder();
 	private int           year = cal.get(Calendar.YEAR) - 1900;
+        private String myId = CellTrack.myId;
 	
-    public class LocalBinder extends Binder {
-        CellTrackService getService() {
-            return CellTrackService.this;
+        public class LocalBinder extends Binder {
+            CellTrackService getService() {
+                return CellTrackService.this;
+            }
         }
-    }
 
 	private final Handler logcatHandler = new Handler() {
 		@Override
@@ -167,7 +168,7 @@ public class CellTrackService extends Service {
 						oldjson[1] = oldjson[0];
 						oldjson[0] = json;
 
-						postJSON("http://allan.de/loc/id/"+CellTrack.myId, json);
+						postJSON("http://allan.de/loc/id/"+myId, json);
 					} else
 						CellTrack.log("flapping cells");
 				} else Log.v("celltrack", "null values occured, wow");
