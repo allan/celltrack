@@ -132,7 +132,7 @@ var server = http.createServer(function(request, response) {
         reply.forEach(function(key) {
           day = key.split(':')[1]
           body += "<li>"+day+' <a href="http://maps.google.com/maps?f=q&geocode=&q=http:%2F%2Fallan.de%2Floc%2Fid%2F'
-            +id+'%2F'+day.replace(/-/g, '%2F')+'">map</li>'
+            +id+'%2F'+day.replace(/-/g, '%2F')+'">map</a></li>'
         })
         body += "</ul></body></html>"
         response.writeHead(200, {
