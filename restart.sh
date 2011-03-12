@@ -1,5 +1,10 @@
 #!/bin/sh
-set -e
+#set -e
+
+cd $HOME/dev/android/celltrack-gh
+dtach_socket=/tmp/dtach.socket
+node_re="\[n\]ode"
+log=/var/log/celltrack.log
 
 COLOR_NC='[0m' # No Color
 COLOR_BLUE='[0;34m'
@@ -20,32 +25,49 @@ COLOR_YELLOW_ON_BLACK='[1;33;44m'
 ok()    { echo "$COLOR_GREEN✔  $* $COLOR_NC"; }
 msg()   { echo "$COLOR_GRAY➺  $* $COLOR_NC"; }
 fatal() { echo "$COLOR_RED✘  $* $COLOR_NC"; }
+is_running() { ps ax | grep -q $node_re; }
 
-cd /home/allan/dev/celltrack
+case $1
+in start)
+    test -e $dtach_socket
+    socket_exists=$?
+    is_running
+    node_running=$?
 
-msg "pull from master repo"
-git pull origin master
-
-ps aux |
-  grep -q [n]ode &&
-  msg "killing node instance" &&
-  killall node
-sleep 0.2
-
-ps aux |
-  grep -q [n]ode &&
-  { fatal "node still running.  killing -9"
-    killall -9 node; }
-sleep 0.1
-
-msg "restarting node instance"
-dtach -n /tmp/dtach.socket \
-  sh -c '/home/allan/local/node/bin/node .|tee -a /var/log/celltrack.log'
-sleep 1
-ps aux |
-  grep -q [n]ode &&
-  ok "finished" &&
-  exit
-
-fatal "failed, no node instance running"
-
+    case $socket_exists$node_running
+    in 00) fatal node already running
+    ;; 01) fatal removing stale socket, then start again
+           rm -f $dtach_socket && exec $0 start
+    ;; 10) fatal node running without dtach,
+           msg will shutdown and try again
+           exec $0 restart
+    ;; 11) msg "pull from master repo"
+           git pull origin master
+           dtach -n $dtach_socket \
+             sh -c '/home/allan/local/node/bin/node .|tee -a $log 2>$log'
+           sleep 0.5
+           is_running &&
+             ok node running ||
+             fatal start failed &&
+             exit 1
+    esac
+;; stop)
+    is_running || { fatal node not running && exit 1; }
+    killall node
+    i=0
+    while is_running
+    do printf .
+       i=`expr $i + 1`
+       sleep 0.5
+       test $i -gt 15 && {
+         printf killing
+         killall -9 node >/dev/null 2>&1
+       }
+    done
+    test -e $dtach_socket && fatal $dtach_socket still exists || ok node stopped
+;; restart) $0 stop; $0 start    # restart
+;; *) printf "usage: `basename $0` start|stop|restart\n" && exit 1
+      #awk '/^in|^;; +[^*]+\)/{sub(/\)/, "", $2); printf "  "$2"\t" }
+      #     /^in|^;;/{sub(/.*#/,"",$0); print $0}
+      #    ' $0
+esac
