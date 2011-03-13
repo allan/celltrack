@@ -4,10 +4,10 @@ var http = require('http')
   , fs = require('fs')
   , url = require('url')
   , util = require('util')
-  , redis = require('redis')
+  , redisClient = require('redis')
   , httprequest = require('request')
 
-var client = redis.createClient()
+var redis = redisClient.createClient()
   , chain = function chain() {
       var steps = Array.prototype.slice.call(arguments)
         , i = 0
@@ -25,95 +25,112 @@ function DateString(d){
          + pad(d.getDate())
 }
 
-client.on("error", function (err) {
+redis.on("error", function (err) {
     console.log("Redis connection error to "
-                + client.host
-                + ":" + client.port + " - " + err);
+                + redis.host
+                + ":" + redis.port + " - " + err);
 });
 
 var server = http.createServer(function(request, response) {
-  request.connection.setTimeout(30000)
-  util.puts(new Date() + "[0;35m "+request.headers['x-real-ip']
+  var remoteAddress = request.headers['x-real-ip'] || "0.0.0.0"
+  request.connection.setTimeout(3000)
+
+  util.puts(new Date() + "[0;35m "+remoteAddress
               +"[0m  "+request.method+' '+request.url)
 
   // POST
   if (request.method === 'POST') {
-    var cell, cellDigest, coordinates, key, sha1, data = ""
+    var cell, cellDigest, coordinates, sha1, data = ""
       , path = url.parse(request.url).pathname.split('/')
       , id = path[3]
       , dayId = DateString(new Date) + ':' + id
 
     request
     .on('data', function(data) {
-      try {
-        cell = JSON.parse(data.toString())
-        if (!(cell.cid && cell.lac && cell.mcc && cell.mnc))
-          throw new Error('Invalid input')
-      } catch (e) {
-        console.log( e.message+", error parsing json post data:", data.toString())
-        response.writeHead(400)
-        response.end()
-        return
-      }
-      response.writeHead(202);
-      sha1 = crypto.createHash('sha1')
-      sha1.update(data);
-      cellDigest = sha1.digest('base64')
-      key = 'cell:'+cellDigest
-
-      client.sadd('user:'+id+':days', dayId);
-      client.lpush(dayId, JSON.stringify(
-        { humantime: (new Date).toLocaleString(),
-          time: +new Date,
-          cell: cellDigest }))
-      client.exists(key, function(err, exists) {
-        if (exists) {
-          console.log("found key for "+data.toString());
-          client.hget(key, 'coordinates', function(err, reply) {
-            response.end(reply);
-          })
-        } else {
-          var cellrequest =
-            { radio_type: "gsm"
-            , address_language: "de_DE"
-            , host: "maps.google.com"
-            , version: "1.1.0"
-            , cell_towers:
-              [ { mobile_network_code: cell.cid
-                , cell_id: cell.mnc
-                , mobile_country_code: cell.lac
-                , location_area_code: cell.mcc
-                }
-              ]
-            , request_address: true
-            }
-          console.log("[0;32msending[0m to google: "
-                      + JSON.stringify(cellrequest))
-          httprequest(
-            { method: 'POST',
-              uri: 'http://www.google.com/loc/json',
-              //uri: 'http://192.168.43.216:8911/pskill',
-              json: true,
-              body: JSON.stringify(cellrequest) }
-            , function (err, res, body) {
-                if (!err) {
-                  try {
-                    var loc = JSON.parse(body)
-                  } catch(e) {
-                    console.log(e)
-                  }
-                  console.log("reply from google"+body);
-                  client.hset(key, 'cell', JSON.stringify(cell));
-                  client.hset(key, 'coordinates', body)
-                  //breakes history
-                  //if (!loc.location.address) client.expire(key, 60 * 5)
-                  response.end(body)
-                } else {
-                  console.log('error: ', err);
-                }
-              }
-          )
+      chain(
+      function(cb) {
+        var key = 'ip:'+remoteAddress
+        redis.incr(key)
+        redis.expire(key, 60)
+        redis.get(key, function(err, reply) {
+          if (parseInt(reply) > 60) {
+            console.log(key + ' reached API limit')
+            response.writeHead(410)
+            response.end("API limit reached")
+          } else cb()
+        })
+      },
+      function(cb) {
+        try {
+          cell = JSON.parse(data.toString())
+          if (!(cell.cid && cell.lac && cell.mcc && cell.mnc))
+            throw new Error('Invalid input')
+        } catch (e) {
+          console.log( e.message+", error parsing json post data:", data.toString())
+          response.writeHead(400)
+          response.end()
+          return
         }
+        response.writeHead(202);
+        sha1 = crypto.createHash('sha1')
+        sha1.update(data);
+        cellDigest = sha1.digest('base64')
+        var key = 'cell:'+cellDigest
+
+        redis.sadd('user:'+id+':days', dayId);
+        redis.lpush(dayId, JSON.stringify(
+          { humantime: (new Date).toLocaleString(),
+            time: +new Date,
+            cell: cellDigest }))
+        redis.exists(key, function(err, exists) {
+          if (exists) {
+            console.log("found key for "+data.toString());
+            redis.hget(key, 'coordinates', function(err, reply) {
+              response.end(reply);
+            })
+          } else {
+            var cellrequest =
+              { radio_type: "gsm"
+              , address_language: "de_DE"
+              , host: "maps.google.com"
+              , version: "1.1.0"
+              , cell_towers:
+                [ { mobile_network_code: cell.cid
+                  , cell_id: cell.mnc
+                  , mobile_country_code: cell.lac
+                  , location_area_code: cell.mcc
+                  }
+                ]
+              , request_address: true
+              }
+            console.log("[0;32msending[0m to google: "
+                        + JSON.stringify(cellrequest))
+            httprequest(
+              { method: 'POST',
+                uri: 'http://www.google.com/loc/json',
+                //uri: 'http://192.168.43.216:8911/pskill',
+                json: true,
+                body: JSON.stringify(cellrequest) }
+              , function (err, res, body) {
+                  if (!err) {
+                    try {
+                      var loc = JSON.parse(body)
+                    } catch(e) {
+                      console.log(e)
+                    }
+                    console.log("reply from google"+body);
+                    redis.hset(key, 'cell', JSON.stringify(cell));
+                    redis.hset(key, 'coordinates', body)
+                    //breakes history
+                    //if (!loc.location.address) redis.expire(key, 60 * 5)
+                    response.end(body)
+                  } else {
+                    console.log('error: ', err);
+                  }
+                }
+            )
+          }
+        })
       })
     })
 
@@ -124,7 +141,7 @@ var server = http.createServer(function(request, response) {
       , id = path[3]
 
     if (path[4] == 'list') {
-      client.smembers('user:'+id+':days', function(err, reply) {
+      redis.smembers('user:'+id+':days', function(err, reply) {
         if (err) throw err;
         body += "<html><body><ul>"
         reply.forEach(function(key) {
@@ -144,7 +161,7 @@ var server = http.createServer(function(request, response) {
     ? DateString(new Date) + ':' + id
     : 'day:'+path.slice(4, 7).join('-')+':'+id
 
-    client.exists(day, function(err, exists) {
+    redis.exists(day, function(err, exists) {
       if (exists) {
         chain(
           function(cb) {
@@ -166,11 +183,11 @@ var server = http.createServer(function(request, response) {
             cb()
           },
           function(cb) {
-            client.lrange(day, 0, -1, function(err, reply) {
+            redis.lrange(day, 0, -1, function(err, reply) {
               var i = 0
               reply.forEach(function(point) {
                 var p = JSON.parse(point)
-                client.hgetall('cell:'+p.cell, function(err, cell) {
+                redis.hgetall('cell:'+p.cell, function(err, cell) {
                   try {
                     var coordinates = JSON.parse(cell.coordinates.toString())
                     if (coordinates.location
